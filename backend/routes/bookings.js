@@ -7,7 +7,7 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 // Create a new booking
-router.post('/', authenticateToken, (req, res) => {
+function createBooking(req, res) {
   try {
     const { hotelId, checkIn, checkOut, guests, guestName, email, phone } = req.body;
 
@@ -21,13 +21,18 @@ router.post('/', authenticateToken, (req, res) => {
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(checkIn) || !/^\d{4}-\d{2}-\d{2}$/.test(checkOut) ||
+        !Number.isFinite(nights) || nights < 1 || !Number.isInteger(Number(guests)) ||
+        guests < 1 || guests > 6 || !guestName?.trim() || !/^\S+@\S+\.\S+$/.test(email) || !phone?.trim()) {
+      return res.status(400).json({ error: 'Check your dates and guest details.' });
+    }
     const totalPrice = hotel.price * nights;
 
     // Create booking
     const booking = {
       id: uuidv4(),
-      bookingId: 'BK' + Date.now(),
-      userId: req.user.userId,
+      bookingId: 'BK-' + uuidv4(),
+      userId: req.user?.userId ?? null,
       hotelId: parseInt(hotelId),
       hotelName: hotel.name,
       location: hotel.location,
@@ -54,7 +59,9 @@ router.post('/', authenticateToken, (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
   }
-});
+}
+router.post('/', authenticateToken, createBooking);
+router.post('/guest', createBooking);
 
 // Get all bookings for authenticated user
 router.get('/', authenticateToken, (req, res) => {
